@@ -53,7 +53,7 @@
   /* ---------- Settings ---------- */
 
   const SETTINGS_KEY = "sudoku.settings.v1";
-  const DEFAULT_SETTINGS = { saveProgress: true };
+  const DEFAULT_SETTINGS = { saveProgress: true, hideCompleted: true };
 
   function loadSettings() {
     try {
@@ -141,6 +141,7 @@
 
   const boardEl = document.getElementById("board");
   const numpadEl = document.getElementById("numpad");
+  const highlighterEl = document.getElementById("highlighter");
   const timerEl = document.getElementById("timer");
   const mistakesEl = document.getElementById("mistakes");
   const scoreEl = document.getElementById("score");
@@ -148,11 +149,13 @@
   const toastEl = document.getElementById("toast");
   const settingsModal = document.getElementById("settingsModal");
   const saveProgressToggle = document.getElementById("saveProgressToggle");
+  const hideCompletedToggle = document.getElementById("hideCompletedToggle");
 
   let solution = [];   // full solved grid (81)
   let puzzle = [];      // current state (81), 0 = empty
   let givens = [];      // boolean[81], true if clue
   let selected = -1;    // selected cell index
+  let highlightDigit = 0; // digit lit up via the highlighter bar (0 = none)
   let mistakes = 0;
   let stats = loadStats();
   let settings = loadSettings();
@@ -285,9 +288,14 @@
       // mark wrong entries (non-givens that disagree with the solution)
       if (val !== 0 && !givens[i] && val !== solution[i])
         cell.classList.add("error");
+
+      // light up every cell holding the digit picked in the highlighter bar
+      if (highlightDigit !== 0 && val === highlightDigit)
+        cell.classList.add("hl");
     }
 
     updateNumpad();
+    updateHighlighter();
   }
 
   // A digit is "done" once all nine of it sit in their correct cells.
@@ -313,6 +321,33 @@
       btn.disabled = done;
       btn.classList.toggle("done", done);
       btn.textContent = done ? "✕" : String(n);
+    });
+  }
+
+  // Reflect the highlighter bar: which digit is active, and how many of each
+  // are still left to place correctly.
+  function updateHighlighter() {
+    const counts = new Array(10).fill(0);
+    for (let i = 0; i < 81; i++) {
+      const v = puzzle[i];
+      if (v !== 0 && v === solution[i]) counts[v]++;
+    }
+    // With "hide finished numbers" on, a fully-placed digit drops off the bar;
+    // clear its highlight too so no stray cells stay lit after it disappears.
+    if (highlightDigit !== 0 && settings.hideCompleted && counts[highlightDigit] >= 9) {
+      highlightDigit = 0;
+      for (const cell of boardEl.children) cell.classList.remove("hl");
+    }
+    highlighterEl.querySelectorAll("button[data-h]").forEach(btn => {
+      const n = Number(btn.dataset.h);
+      const left = Math.max(0, 9 - counts[n]);
+      const done = left === 0;
+      const hidden = done && settings.hideCompleted;
+      btn.hidden = hidden;
+      btn.classList.toggle("active", highlightDigit === n);
+      btn.classList.toggle("done", done && !hidden);
+      const small = btn.querySelector("small");
+      if (small) small.textContent = done ? "✓" : `${left} left`;
     });
   }
 
@@ -345,6 +380,7 @@
     mistakes = 0;
     mistakesEl.textContent = "0";
     selected = -1;
+    highlightDigit = 0;
     toastEl.classList.remove("show");
     puzzle = generate(CLUES[level]);
     givens = puzzle.map(v => v !== 0);
@@ -365,6 +401,7 @@
     seconds = p.seconds || 0;
     solved = !!p.solved;
     selected = -1;
+    highlightDigit = 0;
     mistakesEl.textContent = mistakes;
     toastEl.classList.remove("show");
     syncDifficultyButtons();
@@ -445,6 +482,15 @@
     placeNumber(Number(btn.dataset.n));
   });
 
+  // Toggle highlighting of a digit across the board; tapping the active one clears it.
+  highlighterEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const n = Number(btn.dataset.h);
+    highlightDigit = highlightDigit === n ? 0 : n;
+    render();
+  });
+
   document.getElementById("difficulty").addEventListener("click", (e) => {
     const btn = e.target.closest("button");
     if (!btn) return;
@@ -462,6 +508,7 @@
 
   function openSettings() {
     saveProgressToggle.checked = settings.saveProgress;
+    hideCompletedToggle.checked = settings.hideCompleted;
     settingsModal.hidden = false;
   }
 
@@ -483,6 +530,12 @@
     // Honour the new choice right away: persist the live game, or wipe it.
     if (settings.saveProgress) saveProgress();
     else clearProgress();
+  });
+
+  hideCompletedToggle.addEventListener("change", () => {
+    settings.hideCompleted = hideCompletedToggle.checked;
+    saveSettings();
+    render(); // re-apply the highlighter bar with the new choice
   });
 
   // Capture the latest state (including the running timer) before leaving.

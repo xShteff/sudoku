@@ -11,6 +11,7 @@
   --accent-soft: #0ea5e9;
   --sel: #0369a1;
   --highlight: #1e3a5f;
+  --hl-cell: #0b4a6b;
   --error: #ef4444;
   --win: #22c55e;
 }
@@ -125,6 +126,8 @@ h1 {
 .cell:not(.given) { color: var(--accent); }
 .cell.highlight { background: var(--highlight); }
 .cell.same { background: #15324d; }
+/* every cell holding the digit picked in the highlighter bar */
+.cell.hl { background: var(--hl-cell); box-shadow: inset 0 0 0 2px var(--accent); }
 .cell.selected { background: var(--sel); }
 .cell.error { color: var(--error); }
 
@@ -176,6 +179,54 @@ h1 {
 }
 
 .numpad button.done:active { background: var(--bg); }
+
+/* Highlighter bar: tap a digit to light up all its cells on the board */
+.highlighter {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 6px;
+}
+
+.highlighter button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 10px 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+/* small "N left to place" count under each digit */
+.highlighter button small {
+  font-size: 0.6rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--given);
+}
+
+.highlighter button.active {
+  background: var(--highlight);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.highlighter button.active small { color: var(--accent); }
+
+/* a finished digit, removed from the bar via the "Hide finished numbers" setting */
+.highlighter button[hidden] { display: none; }
+
+/* every one of this digit is correctly placed — nothing left to find */
+.highlighter button.done { opacity: 0.5; color: var(--win); }
+.highlighter button.done small { color: var(--win); }
 
 .controls {
   display: flex;
@@ -356,6 +407,7 @@ h1 {
     --accent: #0369a1;
     --sel: #bae6fd;
     --highlight: #e0f2fe;
+    --hl-cell: #bfe3fb;
     --error: #dc2626;
   }
   .cell.same { background: #dbeafe; }
