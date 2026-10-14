@@ -50,6 +50,71 @@
     }
   }
 
+  /* ---------- Settings ---------- */
+
+  const SETTINGS_KEY = "sudoku.settings.v1";
+  const DEFAULT_SETTINGS = { saveProgress: true };
+
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) return { ...DEFAULT_SETTINGS };
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULT_SETTINGS, ...(parsed || {}) };
+    } catch (e) {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  function saveSettings() {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch (e) {
+      /* ignore — settings just won't persist this session */
+    }
+  }
+
+  /* ---------- In-progress game persistence ---------- */
+
+  const PROGRESS_KEY = "sudoku.progress.v1";
+
+  // Snapshot the current game so a reload can pick up where we left off.
+  function saveProgress() {
+    if (!settings.saveProgress) return;
+    try {
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify({
+        level, puzzle, solution, givens, mistakes, seconds, solved,
+      }));
+    } catch (e) {
+      /* storage unavailable — progress just won't persist */
+    }
+  }
+
+  function clearProgress() {
+    try {
+      localStorage.removeItem(PROGRESS_KEY);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  // Returns a validated snapshot, or null when there's nothing usable to restore.
+  function loadProgress() {
+    try {
+      const raw = localStorage.getItem(PROGRESS_KEY);
+      if (!raw) return null;
+      const p = JSON.parse(raw);
+      const ok = p &&
+        SCORING[p.level] &&
+        Array.isArray(p.puzzle) && p.puzzle.length === 81 &&
+        Array.isArray(p.solution) && p.solution.length === 81 &&
+        Array.isArray(p.givens) && p.givens.length === 81;
+      return ok ? p : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   function computeScore(lvl, secs, misses) {
     const s = SCORING[lvl];
     const score = s.base - secs * s.perSecond - misses * s.perMistake;
@@ -74,6 +139,8 @@
   const mistakesEl = document.getElementById("mistakes");
   const bestEl = document.getElementById("best");
   const toastEl = document.getElementById("toast");
+  const settingsModal = document.getElementById("settingsModal");
+  const saveProgressToggle = document.getElementById("saveProgressToggle");
 
   let solution = [];   // full solved grid (81)
   let puzzle = [];      // current state (81), 0 = empty
@@ -81,6 +148,7 @@
   let selected = -1;    // selected cell index
   let mistakes = 0;
   let stats = loadStats();
+  let settings = loadSettings();
   let level = stats.lastLevel;
   let timerId = null;
   let seconds = 0;
@@ -243,21 +311,24 @@
 
   /* ---------- Game flow ---------- */
 
-  function startTimer() {
+  function startTimer(resumeFrom = 0) {
     stopTimer();
-    seconds = 0;
-    timerEl.textContent = "0:00";
+    seconds = resumeFrom;
+    timerEl.textContent = formatTime(seconds);
     timerId = setInterval(() => {
       seconds++;
-      const m = Math.floor(seconds / 60);
-      const s = (seconds % 60).toString().padStart(2, "0");
-      timerEl.textContent = `${m}:${s}`;
+      timerEl.textContent = formatTime(seconds);
     }, 1000);
   }
 
   function stopTimer() {
     if (timerId) clearInterval(timerId);
     timerId = null;
+  }
+
+  function syncDifficultyButtons() {
+    document.querySelectorAll("#difficulty button")
+      .forEach(b => b.classList.toggle("active", b.dataset.level === level));
   }
 
   function newGame() {
@@ -271,6 +342,31 @@
     updateBestDisplay();
     render();
     startTimer();
+    saveProgress();
+  }
+
+  // Restore a game saved on a previous visit (see loadProgress for validation).
+  function restoreGame(p) {
+    level = p.level;
+    stats.lastLevel = level;
+    solution = p.solution.slice();
+    puzzle = p.puzzle.slice();
+    givens = p.givens.slice();
+    mistakes = p.mistakes || 0;
+    seconds = p.seconds || 0;
+    solved = !!p.solved;
+    selected = -1;
+    mistakesEl.textContent = mistakes;
+    toastEl.classList.remove("show");
+    syncDifficultyButtons();
+    updateBestDisplay();
+    render();
+    if (solved) {
+      stopTimer();
+      timerEl.textContent = formatTime(seconds);
+    } else {
+      startTimer(seconds);
+    }
   }
 
   function placeNumber(n) {
@@ -287,6 +383,7 @@
     }
     render();
     checkWin();
+    saveProgress();
   }
 
   function checkWin() {
@@ -350,8 +447,45 @@
 
   document.getElementById("newGame").addEventListener("click", newGame);
 
+  /* ---------- Settings menu ---------- */
+
+  function openSettings() {
+    saveProgressToggle.checked = settings.saveProgress;
+    settingsModal.hidden = false;
+  }
+
+  function closeSettings() {
+    settingsModal.hidden = true;
+  }
+
+  document.getElementById("settingsBtn").addEventListener("click", openSettings);
+  document.getElementById("closeSettings").addEventListener("click", closeSettings);
+
+  // Click on the dimmed backdrop (but not the card) closes the menu.
+  settingsModal.addEventListener("click", (e) => {
+    if (e.target === settingsModal) closeSettings();
+  });
+
+  saveProgressToggle.addEventListener("change", () => {
+    settings.saveProgress = saveProgressToggle.checked;
+    saveSettings();
+    // Honour the new choice right away: persist the live game, or wipe it.
+    if (settings.saveProgress) saveProgress();
+    else clearProgress();
+  });
+
+  // Capture the latest state (including the running timer) before leaving.
+  window.addEventListener("pagehide", saveProgress);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") saveProgress();
+  });
+
   // keyboard support (handy on tablets with a keyboard, and desktop)
   document.addEventListener("keydown", (e) => {
+    if (!settingsModal.hidden) {
+      if (e.key === "Escape") closeSettings();
+      return; // don't drive the board while the menu is open
+    }
     if (e.key >= "1" && e.key <= "9") placeNumber(Number(e.key));
     else if (e.key === "Backspace" || e.key === "Delete" || e.key === "0") placeNumber(0);
     else if (selected >= 0 && ["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) {
@@ -366,8 +500,12 @@
   });
 
   /* ---------- Boot ---------- */
-  document.querySelectorAll("#difficulty button")
-    .forEach(b => b.classList.toggle("active", b.dataset.level === level));
   buildBoard();
-  newGame();
+  const saved = settings.saveProgress ? loadProgress() : null;
+  if (saved) {
+    restoreGame(saved);
+  } else {
+    syncDifficultyButtons();
+    newGame();
+  }
 })();
