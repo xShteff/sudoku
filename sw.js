@@ -1,11 +1,9 @@
 // Service worker: makes the app installable and work offline.
 // Bump CACHE when any shell asset changes so clients pick up the new version.
-const CACHE = "sudoku-v3";
+const CACHE = "sudoku-v4";
 const ASSETS = [
   "./",
   "./index.html",
-  "./css/styles.css",
-  "./js/app.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
