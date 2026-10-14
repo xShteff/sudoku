@@ -69,6 +69,7 @@
   }
 
   const boardEl = document.getElementById("board");
+  const numpadEl = document.getElementById("numpad");
   const timerEl = document.getElementById("timer");
   const mistakesEl = document.getElementById("mistakes");
   const bestEl = document.getElementById("best");
@@ -210,6 +211,34 @@
       if (val !== 0 && !givens[i] && val !== solution[i])
         cell.classList.add("error");
     }
+
+    updateNumpad();
+  }
+
+  // A digit is "done" once all nine of it sit in their correct cells.
+  function isDigitDone(n) {
+    let count = 0;
+    for (let i = 0; i < 81; i++)
+      if (puzzle[i] === n && solution[i] === n) count++;
+    return count >= 9;
+  }
+
+  // Disable a digit once all nine of it are correctly placed — there's
+  // nowhere left to put it, so swap the key's label for an "✕".
+  function updateNumpad() {
+    const counts = new Array(10).fill(0);
+    for (let i = 0; i < 81; i++) {
+      const v = puzzle[i];
+      if (v !== 0 && v === solution[i]) counts[v]++;
+    }
+    numpadEl.querySelectorAll("button[data-n]").forEach(btn => {
+      const n = Number(btn.dataset.n);
+      if (n === 0) return; // the Erase key is never disabled
+      const done = counts[n] >= 9;
+      btn.disabled = done;
+      btn.classList.toggle("done", done);
+      btn.textContent = done ? "✕" : String(n);
+    });
   }
 
   /* ---------- Game flow ---------- */
@@ -246,6 +275,8 @@
 
   function placeNumber(n) {
     if (solved || selected < 0 || givens[selected]) return;
+    // ignore a digit that's already fully placed (keyboard mirrors the disabled key)
+    if (n !== 0 && isDigitDone(n)) return;
     const prev = puzzle[selected];
     puzzle[selected] = n;
 
