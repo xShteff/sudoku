@@ -133,10 +133,17 @@
     bestEl.textContent = best > 0 ? best.toLocaleString() : "—";
   }
 
+  // Show the score the current solve would earn right now — it ticks down
+  // with the timer and drops on each mistake. Frozen once solved.
+  function updateScoreDisplay() {
+    scoreEl.textContent = computeScore(level, seconds, mistakes).toLocaleString();
+  }
+
   const boardEl = document.getElementById("board");
   const numpadEl = document.getElementById("numpad");
   const timerEl = document.getElementById("timer");
   const mistakesEl = document.getElementById("mistakes");
+  const scoreEl = document.getElementById("score");
   const bestEl = document.getElementById("best");
   const toastEl = document.getElementById("toast");
   const settingsModal = document.getElementById("settingsModal");
@@ -315,9 +322,11 @@
     stopTimer();
     seconds = resumeFrom;
     timerEl.textContent = formatTime(seconds);
+    updateScoreDisplay();
     timerId = setInterval(() => {
       seconds++;
       timerEl.textContent = formatTime(seconds);
+      updateScoreDisplay();
     }, 1000);
   }
 
@@ -364,6 +373,7 @@
     if (solved) {
       stopTimer();
       timerEl.textContent = formatTime(seconds);
+      updateScoreDisplay();
     } else {
       startTimer(seconds);
     }
@@ -380,6 +390,7 @@
     if (n !== 0 && n !== solution[selected] && prev !== n) {
       mistakes++;
       mistakesEl.textContent = mistakes;
+      updateScoreDisplay();
     }
     render();
     checkWin();

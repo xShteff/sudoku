@@ -1,0 +1,42 @@
+name: Deploy to GitHub Pages
+
+on:
+  # Deploy on every push to main
+  push:
+    branches: [main]
+  # ...and allow manual runs from the Actions tab
+  workflow_dispatch:
+
+# Permissions the Pages deploy needs
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a new push cancel an in-progress deploy, but never cancel a live one
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # The site is static and lives at the repo root — upload it as-is.
+          path: .
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

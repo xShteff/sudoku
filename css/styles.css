@@ -91,8 +91,7 @@ h1 {
   grid-template-columns: repeat(9, 1fr);
   aspect-ratio: 1 / 1;
   width: 100%;
-  gap: 2px;
-  background: var(--thick);
+  background: var(--cell);
   border: 3px solid var(--thick);
   border-radius: 8px;
   overflow: hidden;
@@ -104,6 +103,9 @@ h1 {
   align-items: center;
   justify-content: center;
   background: var(--cell);
+  /* subtle hairlines between cells */
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   font-size: clamp(1.1rem, 6vw, 2rem);
   font-weight: 500;
   cursor: pointer;
@@ -111,9 +113,13 @@ h1 {
   transition: background 0.1s;
 }
 
-/* thicker separators between 3x3 boxes */
-.cell[data-col="2"], .cell[data-col="5"] { margin-right: 2px; }
-.cell[data-row="2"], .cell[data-row="5"] { margin-bottom: 2px; }
+/* the outer frame already closes off the last column / row */
+.cell[data-col="8"] { border-right: none; }
+.cell[data-row="8"] { border-bottom: none; }
+
+/* bolder, brighter separators between the 3x3 boxes */
+.cell[data-col="2"], .cell[data-col="5"] { border-right: 2px solid var(--thick); }
+.cell[data-row="2"], .cell[data-row="5"] { border-bottom: 2px solid var(--thick); }
 
 .cell.given { color: var(--given); font-weight: 700; }
 .cell:not(.given) { color: var(--accent); }
@@ -343,6 +349,7 @@ h1 {
     --bg: #f1f5f9;
     --panel: #e2e8f0;
     --cell: #ffffff;
+    --line: #cbd5e1;
     --thick: #475569;
     --text: #0f172a;
     --given: #475569;
